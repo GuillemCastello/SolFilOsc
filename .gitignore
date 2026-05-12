@@ -31,5 +31,8 @@ data/
 # Results
 results/
 
+# Docs/Codex Logging
+docs/
+
 # The Segmentation model -> should be downloaded from the original repository
 FilamentSeg/
