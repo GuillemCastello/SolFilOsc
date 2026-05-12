@@ -14,17 +14,35 @@ import sys
 #################
 # DAY OF INTEREST
 #################
+if len(sys.argv) < 5:
+    raise SystemExit(
+        "Usage: python3 -m solfilosc.data_processing.preprocess_data "
+        "<year> <month> <day> <n_proc> [raw_data_dir]\n"
+        "Default raw_data_dir: data/raw/<month>/<day>/"
+    )
+
 year = sys.argv[1]
 month = sys.argv[2]
 day = sys.argv[3]
 n_proc = sys.argv[4]
+raw_data_dir = sys.argv[5] if len(sys.argv) > 5 else os.path.join('data', 'raw', month, day)
 print(f'Day of calculations: {day} \n')
 
 
 ################################################################
 # DIRECTORY WHERE ALL .FITS.FZ FILES ARE STORED FOR A SINGLE DAY
 ################################################################
-directory_of_original_data = f'/mnt/scratch/guillem/{month}/{day}/'
+directory_of_original_data = raw_data_dir
+if not directory_of_original_data.endswith(os.sep):
+    directory_of_original_data += os.sep
+
+if not os.path.isdir(directory_of_original_data):
+    raise FileNotFoundError(
+        f"Raw FITS directory not found: {directory_of_original_data}\n"
+        "Create this folder and place the .fits.fz files there, or pass a custom "
+        "raw-data directory as the optional fifth argument to preprocess_data."
+    )
+
 print(f'Data is in directory {directory_of_original_data} \n')
 directory_of_processed_data = f'data/{day}/'
 os.makedirs(directory_of_processed_data, exist_ok=True)
@@ -37,7 +55,18 @@ if 'updated' not in os.listdir(directory_of_processed_data):
 ########################################################
 print('Creating file list and applying filters')
 files = sorted(glob.glob(directory_of_original_data+'*.fits.fz'))
+if len(files) == 0:
+    raise FileNotFoundError(
+        f"No .fits.fz files found in {directory_of_original_data}\n"
+        "Place the raw daily files there, or pass the correct raw-data directory "
+        "as the optional fifth argument."
+    )
 files = filter1(files)
+if len(files) == 0:
+    raise RuntimeError(
+        f"All .fits.fz files in {directory_of_original_data} were rejected by "
+        "the file-size filter. Check that the raw files are complete."
+    )
 obs_windows_telescopes = observation_windows_telescopes(files)
 obs_windows_times = observation_windows_times(obs_windows_telescopes)
 obs_windows_times_telescopes = observation_windows_times_telescopes(obs_windows_times, files)

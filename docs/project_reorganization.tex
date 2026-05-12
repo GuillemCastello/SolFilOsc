@@ -43,6 +43,12 @@ documentational.
   \item Added \texttt{pyproject.toml} so the package can be installed in
   editable mode with \texttt{pip install -e .}. The analysis command is
   exposed as \texttt{solfilosc-analysis} through a lightweight CLI wrapper.
+  \item Updated \texttt{preprocess\_data.py} so the default raw FITS location
+  is project-local: \texttt{data/raw/<month>/<day>/}. A custom raw-data
+  directory can still be supplied as an optional fifth command-line argument.
+  If the expected folder or \texttt{*.fits.fz} files are missing, the script
+  now raises an explicit setup error instead of failing later by indexing an
+  empty file list.
 \end{itemize}
 
 \section{Documentation Changes}
@@ -50,6 +56,9 @@ documentational.
   \item Rewrote \texttt{README.md} to document the repository layout,
   installation procedure, preprocessing pipeline, filament segmentation
   dependency, CNN analysis execution, and operational caveats.
+  \item Expanded the preprocessing documentation with the exact positional
+  command-line arguments, default raw-data layout, optional custom raw-data
+  path, FITS filename/header assumptions, and FilamentSeg citation details.
 \end{itemize}
 
 \section{Functionality}
