@@ -10,8 +10,8 @@ from multiprocessing import Pool
 from tqdm import tqdm
 import time as t
 import h5py
-from derotate import derotate
-from create_times_array import create_tdeltas_array
+from .derotate import derotate
+from .create_times_array import create_tdeltas_array
 
 
 ##############################################################

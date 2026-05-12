@@ -1,7 +1,7 @@
-from mapping.plot_map import *        
-from mapping.transform_map import *   
-from mapping.fits2map import * 
-from decorators import benchmark
+from solfilosc.mapping.plot_map import *
+from solfilosc.mapping.transform_map import *
+from solfilosc.mapping.fits2map import *
+from .decorators import benchmark
 
 # FUNCTION THAT DEROTATES A MAP TO A GIVEN TIME, DEFAULT TO 12:00:00
 def derotate(file):

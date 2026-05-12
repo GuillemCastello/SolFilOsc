@@ -39,7 +39,7 @@
 from __future__ import print_function
 from astropy.time import Time
 import numpy as np
-from mapping.map_util import *
+from solfilosc.mapping.map_util import *
 
 def filt_data(data=None, min=None, max=None, inverse=False, nan=False, 
               missing=None, positive=False):

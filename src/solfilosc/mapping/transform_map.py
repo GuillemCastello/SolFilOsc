@@ -1,6 +1,6 @@
 from __future__ import print_function
-from mapping.map_util import *
-from mapping.transform_solar import arcmin2hel, hel2arcmin
+from solfilosc.mapping.map_util import *
+from solfilosc.mapping.transform_solar import arcmin2hel, hel2arcmin
 
 from copy import deepcopy
 import numpy as np

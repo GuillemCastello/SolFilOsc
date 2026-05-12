@@ -35,8 +35,8 @@ from __future__ import print_function
 from astropy.io import fits
 from astropy.time import Time
 import os
-from mapping.make_map import make_map
-from mapping.map_util import *
+from solfilosc.mapping.make_map import make_map
+from solfilosc.mapping.map_util import *
 
 def vso_search(trange=None, instrument=None, wavelength=None, sample=None,
                provider=None, source=None):

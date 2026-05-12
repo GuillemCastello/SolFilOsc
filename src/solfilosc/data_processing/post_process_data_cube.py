@@ -13,7 +13,7 @@ import itertools
 import h5py
 from scipy.ndimage import median_filter
 
-from create_times_array import create_tdeltas_array
+from .create_times_array import create_tdeltas_array
 
 ##############################################################
 #CREATING THE DATA CUBE / DEROTATING IMAGES OF THE TIME SERIES

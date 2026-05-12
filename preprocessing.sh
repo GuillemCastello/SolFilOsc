@@ -3,6 +3,7 @@ set -euo pipefail
 
 python3 --version
 ncores=64
+export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
 days=(
     20140102
     20140103
@@ -22,13 +23,13 @@ days=(
 for day in "${days[@]}"; do
   echo "=== Processing day: $day ==="
 
-  python3 data_processing/preprocess_data.py 2014 201401 "$day" "$ncores"
+  python3 -m solfilosc.data_processing.preprocess_data 2014 201401 "$day" "$ncores"
   sleep 5
 
-  python3 data_processing/create_data_cube_file.py 2014 201401 "$day" "$ncores"
+  python3 -m solfilosc.data_processing.create_data_cube_file 2014 201401 "$day" "$ncores"
   sleep 5
 
-  python3 data_processing/post_process_data_cube.py 2014 201401 "$day" y
+  python3 -m solfilosc.data_processing.post_process_data_cube 2014 201401 "$day" y
   sleep 5
 
   python3 segment_filaments.py "$day"

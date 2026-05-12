@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from decorators import benchmark
+from .decorators import benchmark
 
 @benchmark
 def create_tdeltas_array(file_list):

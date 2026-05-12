@@ -1,5 +1,5 @@
 import numpy as np
-from decorators import benchmark
+from .decorators import benchmark
 from typing import Tuple
 from scipy.special import factorial
 

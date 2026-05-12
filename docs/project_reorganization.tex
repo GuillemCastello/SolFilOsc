@@ -1,0 +1,63 @@
+\documentclass{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{enumitem}
+\usepackage{hyperref}
+
+\title{SolFilOsc Project Reorganization Report}
+\date{2026-05-12}
+
+\begin{document}
+\maketitle
+
+\section{Purpose}
+The project was reorganized so the preprocessing code and the CNN-based
+oscillation analysis live in importable Python modules under \texttt{src/}.
+The numerical workflow was preserved; the change is structural and
+documentational.
+
+\section{Code Layout Changes}
+\begin{itemize}[leftmargin=*]
+  \item Moved the former \texttt{data\_processing/} scripts to
+  \texttt{src/solfilosc/data\_processing/}.
+  \item Moved the mapping utilities to \texttt{src/solfilosc/mapping/}.
+  \item Split the notebook implementation into focused modules under
+  \texttt{src/solfilosc/analysis/}: constants, CNN/noise-model utilities,
+  conformal-prediction calibration, degradation helpers, ROI helpers,
+  detection/component extraction, event clustering, plotting, writers, and
+  the pipeline driver.
+  \item Replaced \texttt{notebooks/analysis\_with\_CNN.ipynb} with a thin
+  interactive launcher that imports the packaged analysis pipeline.
+  \item Converted the unused legacy \texttt{fits\_obj.py} IDL-style reference
+  into an explicit Python placeholder because the previous file was not valid
+  Python and was not imported by the active pipeline.
+\end{itemize}
+
+\section{Import and Execution Changes}
+\begin{itemize}[leftmargin=*]
+  \item Updated internal imports from folder-relative assumptions to package
+  imports such as \texttt{solfilosc.mapping} and relative imports inside
+  \texttt{solfilosc.data\_processing}.
+  \item Updated \texttt{preprocessing.sh} to run preprocessing stages with
+  \texttt{python3 -m solfilosc.data\_processing.<module>} and to add
+  \texttt{src/} to \texttt{PYTHONPATH}.
+  \item Added \texttt{pyproject.toml} so the package can be installed in
+  editable mode with \texttt{pip install -e .}. The analysis command is
+  exposed as \texttt{solfilosc-analysis} through a lightweight CLI wrapper.
+\end{itemize}
+
+\section{Documentation Changes}
+\begin{itemize}[leftmargin=*]
+  \item Rewrote \texttt{README.md} to document the repository layout,
+  installation procedure, preprocessing pipeline, filament segmentation
+  dependency, CNN analysis execution, and operational caveats.
+\end{itemize}
+
+\section{Functionality}
+No intentional numerical or scientific-method changes were made. The
+preprocessing stages still perform file filtering, limb-darkening/background
+correction, derotation/data-cube creation, and post-processing. The analysis
+still performs CNN noise-model inference, conformal-prediction thresholding,
+multiscale period detection, component extraction, event clustering, and
+plot/table generation.
+
+\end{document}

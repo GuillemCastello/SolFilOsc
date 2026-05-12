@@ -1,6 +1,6 @@
 import numpy as np
-from fits_utils import open_fits_fz_file
-from decorators import benchmark
+from .fits_utils import open_fits_fz_file
+from .decorators import benchmark
 import sys
 
 @benchmark
