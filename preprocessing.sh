@@ -1,0 +1,35 @@
+#!/bin/bash
+set -euo pipefail
+
+python3 --version
+ncores=64
+days=(
+    20140102
+    20140103
+    20140104
+    20140105
+    20140106
+    20140107
+    20140108
+    20140109
+    20140110
+    20140111
+    20140112
+    20140113
+    20140114
+)
+
+for day in "${days[@]}"; do
+  echo "=== Processing day: $day ==="
+
+  python3 data_processing/preprocess_data.py 2014 201401 "$day" "$ncores"
+  sleep 5
+
+  python3 data_processing/create_data_cube_file.py 2014 201401 "$day" "$ncores"
+  sleep 5
+
+  python3 data_processing/post_process_data_cube.py 2014 201401 "$day" y
+  sleep 5
+
+  python3 segment_filaments.py "$day"
+done
