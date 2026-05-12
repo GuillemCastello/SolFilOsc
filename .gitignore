@@ -28,5 +28,8 @@ dist/
 # Data files
 data/
 
+# Results
+results/
+
 # The Segmentation model -> should be downloaded from the original repository
 FilamentSeg/
