@@ -29,7 +29,7 @@ for day in "${days[@]}"; do
   python3 -m solfilosc.data_processing.create_data_cube_file 2014 201401 "$day" "$ncores"
   sleep 5
 
-  python3 -m solfilosc.data_processing.post_process_data_cube 2014 201401 "$day" y
+  python3 -m solfilosc.data_processing.post_process_data_cube 2014 201401 "$day"
   sleep 5
 
   python3 segment_filaments.py "$day"

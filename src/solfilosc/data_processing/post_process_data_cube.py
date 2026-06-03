@@ -1,4 +1,5 @@
 import os
+
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
 import warnings
 from astropy.utils.exceptions import AstropyWarning
@@ -12,8 +13,8 @@ from tqdm import tqdm
 import itertools
 import h5py
 from scipy.ndimage import median_filter
-
 from .create_times_array import create_tdeltas_array
+from .filename_helpers import observatory_change_indices
 
 ##############################################################
 #CREATING THE DATA CUBE / DEROTATING IMAGES OF THE TIME SERIES
@@ -73,7 +74,7 @@ if 'delete' not in os.listdir(directory_of_data):
     os.makedirs(directory_of_data+'delete')
 
 for file in deleted_files:
-    os.replace(file, f'{directory_of_data}delete/{file[-29:]}')
+    os.replace(file, f'{directory_of_data}delete/{os.path.basename(file)}')
 
 print('Files deleted')
 print('')
@@ -83,57 +84,36 @@ print('')
 #MEDIAN ADJUSTMENT OF PIXELS AT TELESCOPE CHANGE INSTANTS
 ##############################################################  
 print('Computing telescope change instants')      
-change_telescope_indices = []
-files_updated = sorted(glob.glob(directory_of_data+'*.fits'))
-for num, updated_file in enumerate(files_updated[1:]):
-    if updated_file[-15] != files_updated[num][-15]:
-        change_telescope_indices.append(num+1)
+change_telescope_indices = observatory_change_indices(files_updated)
 
 print(f'Median adjustment of each pixel at telescope change instants, total of {len(change_telescope_indices)} adjustments will be done')
-spaces_prev = [change - change_telescope_indices[id-1] if id > 0 else change_telescope_indices[0] for id, change in enumerate(change_telescope_indices)]
-spaces_post = [change_telescope_indices[id+1] - change if id < len(change_telescope_indices)-1 else change_telescope_indices[-1] for id, change in enumerate(change_telescope_indices)]
 space_median_adj = 15
+n_frames = data_cube.shape[0]
 
 for id, change in enumerate(change_telescope_indices):
-    if spaces_prev[id] < space_median_adj and spaces_post[id] < space_median_adj:
-        if id == 0:
-            previous = np.median(data_cube[:change, :, :], axis=0)
-            posterior = np.median(data_cube[change:change_telescope_indices[id+1], : ,:], axis=0)
-        elif id == len(change_telescope_indices)-1:
-            previous = np.median(data_cube[change_telescope_indices[id-1]:change, :, :], axis=0)
-            posterior = np.median(data_cube[change:, : ,:], axis=0)
-        else:
-            previous = np.median(data_cube[change_telescope_indices[id-1]:change, :, :], axis=0)
-            posterior = np.median(data_cube[change:change_telescope_indices[id+1], : ,:], axis=0)
+    previous_segment_start = change_telescope_indices[id - 1] if id > 0 else 0
+    posterior_segment_end = (
+        change_telescope_indices[id + 1]
+        if id < len(change_telescope_indices) - 1
+        else n_frames
+    )
 
-    elif spaces_prev[id] < space_median_adj and spaces_post[id] > space_median_adj:
-        if id == 0:
-            previous = np.median(data_cube[:change, :, :], axis=0)
-            posterior = np.median(data_cube[change:change+space_median_adj, : ,:], axis=0)
-        else:
-            previous = np.median(data_cube[change_telescope_indices[id-1]:change, :, :], axis=0)
-            posterior = np.median(data_cube[change:change+space_median_adj, : ,:], axis=0)
+    previous_start = max(previous_segment_start, change - space_median_adj)
+    previous_end = change
 
-    elif spaces_prev[id] > space_median_adj and spaces_post[id] < space_median_adj:
-        if id == len(change_telescope_indices)-1:
-            previous = np.median(data_cube[change-space_median_adj:change, :, :], axis=0)
-            posterior = np.median(data_cube[change:, : ,:], axis=0)
-        else:
-            previous = np.median(data_cube[change-space_median_adj:change, :, :], axis=0)
-            posterior = np.median(data_cube[change:change_telescope_indices[id+1], : ,:], axis=0)
+    posterior_start = change
+    posterior_end = min(posterior_segment_end, change + space_median_adj)
 
-    elif spaces_prev[id] > space_median_adj and spaces_post[id] > space_median_adj:
-        previous = np.median(data_cube[change-space_median_adj:change, :, :], axis=0)
-        posterior = np.median(data_cube[change:change+space_median_adj, : ,:], axis=0)
+    previous = np.median(data_cube[previous_start:previous_end, :, :], axis=0)
+    posterior = np.median(data_cube[posterior_start:posterior_end, :, :], axis=0)
 
     delta = posterior - previous
 
-    if id == len(change_telescope_indices)-1:
-        print(f'{id+1} / {len(change_telescope_indices)}')
+    if id == len(change_telescope_indices) - 1:
         data_cube[change:, :, :] = data_cube[change:, :, :] - delta
     else:
-        print(f'{id+1} / {len(change_telescope_indices)}')
-        data_cube[change:change_telescope_indices[id+1], :, :] = data_cube[change:change_telescope_indices[id+1], :, :] - delta
+        next_change = change_telescope_indices[id + 1]
+        data_cube[change:next_change, :, :] = data_cube[change:next_change, :, :] - delta
 
 print('Median adjustment finished')
 print('')

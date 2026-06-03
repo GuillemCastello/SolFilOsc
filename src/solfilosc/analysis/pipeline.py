@@ -95,6 +95,12 @@ def run_once(
     with h5.File(masks_h5, "r") as hm:
         masks = np.array(hm["masks"][:], dtype=np.uint8)
 
+    if images.shape[0] != tdeltas.shape[0] or masks.shape[0] != images.shape[0]:
+        raise ValueError(
+            f"Time-axis mismatch: images={images.shape}, "
+            f"tdeltas={tdeltas.shape}, masks={masks.shape}"
+        )
+
     order = np.argsort(tdeltas)
     tdeltas = tdeltas[order]
     images = images[order]

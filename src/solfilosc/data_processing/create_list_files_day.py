@@ -1,7 +1,12 @@
 import numpy as np
 from .fits_utils import open_fits_fz_file
 from .decorators import benchmark
-import sys
+from .filename_helpers import (
+    formatted_observation_date,
+    observation_seconds,
+    observatory,
+)
+
 
 @benchmark
 def observation_windows_telescopes(file_list, plotting=False, savefig_path=None, order_files=False):
@@ -13,12 +18,14 @@ def observation_windows_telescopes(file_list, plotting=False, savefig_path=None,
     # THIS IS THE LIST OF POSSIBLE OBS SITES
     # ['L', 'M', 'U', 'C', 'T', 'B']
     obs_order = ['L', 'M', 'U', 'C', 'T', 'B']
+    noon_seconds = 12 * 3600
+    min_second_window_gap_seconds = 3600
 
     # SPLIT THE INPUT INTO TELESCOPES (WE GET A LIST OF LISTS, EACH INDEX REPRESENT A DIFFERENT TELESCOPE)
     files_obs_site_ordered = []
     missing_obs = []
     for obs_site in obs_order:
-        files_obs_site = list(filter(lambda files_list: files_list[:][-10] == obs_site, file_list))
+        files_obs_site = [file for file in file_list if observatory(file) == obs_site]
         files_obs_site_ordered.append(files_obs_site)
         if len(files_obs_site) == 0:
             missing_obs.append(obs_site)
@@ -45,31 +52,46 @@ def observation_windows_telescopes(file_list, plotting=False, savefig_path=None,
             # USED FOR CHECKING IF ANY OBS-SITE HAS A SECOND OBSERVATION WINDOW
             cuts = 0
             for j, hour in enumerate(obs_site):
-                if int(hour[-16:-10]) > 120000:
+                if observation_seconds(hour) > noon_seconds:
                     if cuts > 0:
                         continue
                     else:
                         cuts = j
             # IF ANY TELESCOPE HAS A SECOND OBSERVATION WINDOW APPEND 2 DIFFERENT TUPLES WITH THE RESPECTIVE OBS WINDOWS
-            if (cuts > 0) and ((int(obs_site[cuts][-16:-10]) -  int(obs_site[cuts-1][-16:-10])) >= 10000 ):
-                start_end.append([obs_site[0][-10], obs_site[0][-16:-10], obs_site[cuts-1][-16:-10], cuts])
-                start_end.append([obs_site[0][-10], obs_site[cuts][-16:-10], obs_site[-1][-16:-10], len(obs_site)-cuts])
+            if cuts > 0:
+                gap_seconds = (
+                    observation_seconds(obs_site[cuts])
+                    - observation_seconds(obs_site[cuts-1])
+                )
             else:
-                start_end.append([obs_site[0][-10], obs_site[0][-16:-10], obs_site[-1][-16:-10], len(obs_site)])
+                gap_seconds = 0
+
+            if gap_seconds >= min_second_window_gap_seconds:
+                start_end.append([
+                    observatory(obs_site[0]),
+                    observation_seconds(obs_site[0]),
+                    observation_seconds(obs_site[cuts-1]),
+                    cuts,
+                ])
+                start_end.append([
+                    observatory(obs_site[0]),
+                    observation_seconds(obs_site[cuts]),
+                    observation_seconds(obs_site[-1]),
+                    len(obs_site)-cuts,
+                ])
+            else:
+                start_end.append([
+                    observatory(obs_site[0]),
+                    observation_seconds(obs_site[0]),
+                    observation_seconds(obs_site[-1]),
+                    len(obs_site),
+                ])
         
         except IndexError:
             continue
     
     # SORT THE LIST OF TUPLES
     start_end = Sort_Tuple(start_end)
-
-    # HELPER FUNCTION TO CHANGE FROM HHMMSS TO TOTAL NUMBER OF SECONDS
-    def hhmmss_to_s(time):
-        return int(time[0:2])*3600 + int(time[2:4])*60 + int(time[4:])
-    
-    for l in range(len(start_end)):
-        start_end[l][1] = hhmmss_to_s(start_end[l][1])
-        start_end[l][2] = hhmmss_to_s(start_end[l][2])
 
     # PLOTTING THE OBSERVATION WINDOWS FOR EACH TELESCOPE
     if plotting == True:
@@ -95,7 +117,7 @@ def observation_windows_telescopes(file_list, plotting=False, savefig_path=None,
         plt.xticks(xticks, map(str, xticks))
         plt.ylabel('Telescope')
         plt.xlabel('DayTime [h]')
-        plt.title(str(file_list[0][-24:-20]) + '-' + str(file_list[0][-20:-18]) + '-' + str(file_list[0][-18:-16]))
+        plt.title(formatted_observation_date(file_list[0]))
         if savefig_path != None:
             plt.savefig(savefig_path)
             plt.close()
@@ -114,7 +136,12 @@ def observation_windows_telescopes(file_list, plotting=False, savefig_path=None,
             files_ordered_temp = []
             for file_list in files_obs_site_ordered:
                 for file in file_list:
-                    if (file[-10] == condition[0]) and (int(file[-16:-10]) >= int(condition[1])) and (int(file[-16:-10]) <= int(condition[2])):
+                    file_observation_seconds = observation_seconds(file)
+                    if (
+                        observatory(file) == condition[0]
+                        and file_observation_seconds >= int(condition[1])
+                        and file_observation_seconds <= int(condition[2])
+                    ):
                         files_ordered_temp.append(file)
             files_ordered.append(files_ordered_temp)        
         return start_end, files_ordered
@@ -186,9 +213,6 @@ def observation_windows_times_telescopes(obs_windows_times, file_list):
     # INPUT: LIST OF TIME OBSERVATION WINDOWS
     # OUTPUT: LIST OF TIME-TELESCOPE OBSERVATION WINDOWS (i.e: [ [[.FZ, 1NFILES, TELESCOPE1], ..., [.FZ, 4NFILES, TELESCOPE4], TIME-DURATION], [[.FZ, 1NFILES, TELESCOPE1], ..., [.FZ, 3NFILES, TELESCOPE3],  TIME-DURATION], ... ], 3 INDICES)
 
-    def hhmmss_to_s(time):
-        return int(time[0:2])*3600 + int(time[2:4])*60 + int(time[4:])
-
     # LIST OF TIME-TELESCOPE OBSERVATION WINDOWS
     obs_windows_times_telescopes = []
 
@@ -207,9 +231,13 @@ def observation_windows_times_telescopes(obs_windows_times, file_list):
 
                 # ITERATE THRUOGH THE LIST OF FILES AND CHECK IF THEY ARE FROM THE GIVEN TIME INTERVAL AND TELESCOPE
                 for file in file_list:
-                    obs_time_s = hhmmss_to_s(file[-16:-10])
-                    file_telescope = file[-10]
-                    if (obs_time_s >= obs_window[0]) and (obs_time_s <= obs_window[1]) and (file_telescope == telescope):
+                    obs_time_s = observation_seconds(file)
+                    file_telescope = observatory(file)
+                    if (
+                        obs_time_s >= obs_window[0]
+                        and obs_time_s <= obs_window[1]
+                        and file_telescope == telescope
+                    ):
                         # APPEND FILE TO LIST OF FILES FOR A GIVEN TELESCOPE
                         obs_window_telescope_files.append(file)
                 
@@ -233,14 +261,41 @@ def add_sharpness_entry(obs_windows_times_telescopes):
             telescope.append(sharp)
     return obs_windows_times_telescopes
 
+
 @benchmark
-def filter_density(obs_windows_times_telescopes):
+def filter_density(obs_windows_times_telescopes, policy="drop"):
+    if policy not in {"drop", "least_bad"}:
+        raise ValueError("policy must be 'drop' or 'least_bad'")
+
+    min_density = 0.9
+    max_density = 1.1
+    expected_density = 1.0
+
     for window in obs_windows_times_telescopes:
-        if len(window[0]) > 1: 
-            for id, telescope in enumerate(window[0]): 
-                if (telescope[1]/(window[1]/60) > 1.1) or (telescope[1]/(window[1]/60) < 0.9):
-                    window[0].pop(id)
+        if len(window[0]) <= 1:
+            continue
+
+        window_duration_min = window[1] / 60
+
+        valid_telescopes = []
+        scored_telescopes = []
+
+        for telescope in window[0]:
+            density = telescope[1] / window_duration_min
+            scored_telescopes.append((abs(density - expected_density), telescope))
+
+            if min_density <= density <= max_density:
+                valid_telescopes.append(telescope)
+
+        if valid_telescopes:
+            window[0] = valid_telescopes
+        elif policy == "least_bad" and scored_telescopes:
+            window[0] = [min(scored_telescopes, key=lambda item: item[0])[1]]
+        else:
+            window[0] = []
+
     return obs_windows_times_telescopes
+
 
 @benchmark
 def filter_sharpness(obs_windows_times_telescopes):

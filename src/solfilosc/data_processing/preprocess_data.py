@@ -9,7 +9,7 @@ from .create_list_files_day import *
 from .limb_darkening import remove_limb_darkening, correct_limb_darkening_and_background
 from .fits_utils import open_fits_file, open_fits_fz_file, save_fits_file
 import sys
-
+from .filename_helpers import updated_filename as build_updated_filename, updated_filepath
 
 #################
 # DAY OF INTEREST
@@ -85,17 +85,20 @@ print('Files filtered \n')
 
 def preprocess_data(args):
     file = args
-    updated_filename = f'{directory_of_processed_data}updated/{file[-24:-8]}_updated.fits'
+    updated_filename = updated_filepath(file, os.path.join(directory_of_processed_data, "updated"))
     header, data = open_fits_fz_file(file)
     data = data.astype(np.float32)
     data = correct_limb_darkening_and_background(data)
     #data = median_adjust_intensity(data, reference_data, inside_indices_list)
     save_fits_file(updated_filename, header, data)
-    return f'{file[-24:-8]}_updated.fits created'
+    return f"{build_updated_filename(file)} created"
 
 
 # CASE 0:
-updated_filename0 = f'{directory_of_processed_data}updated/{final_files_list[0][-24:-8]}_updated.fits'
+updated_filename0 = updated_filepath(
+    final_files_list[0],
+    os.path.join(directory_of_processed_data, "updated"),
+)
 ref_header, ref_data = open_fits_fz_file(final_files_list[0])
 ref_data = correct_limb_darkening_and_background(ref_data)
 save_fits_file(updated_filename0, ref_header, ref_data)
