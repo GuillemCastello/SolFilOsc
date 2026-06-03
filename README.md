@@ -216,3 +216,4 @@ Outputs are written under `results/<day>/`, including CP calibration caches, dia
 - TensorFlow is forced to CPU in the CNN module, matching the original notebook behavior.
 - CP calibration is expensive but cached per day under `results/<day>/`.
 - `data/`, `results/`, and `FilamentSeg/` are ignored because they are large or externally sourced.
+-If a day is reprocessed, or if masks/model weights/calibration settings change, delete results/<day>/ before rerunning the analysis. The CP calibration cache is stored under results/<day>/ and is reused when present.

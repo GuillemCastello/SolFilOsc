@@ -8,7 +8,7 @@ import numpy as np
 from joblib import Parallel, delayed
 from scipy.ndimage import binary_dilation
 from tqdm import tqdm
-
+from sklearn.preprocessing import MinMaxScaler
 from .cnn import CNN, _build_scaler, cnn_predict_noise_params, compute_ls_psd_safe, load_cnn, noise_model
 from .constants import CNN_FREQUENCY_GRID, N_PIXEL_WORKERS
 

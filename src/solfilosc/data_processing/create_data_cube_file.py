@@ -12,6 +12,8 @@ import time as t
 import h5py
 from .derotate import derotate
 from .create_times_array import create_tdeltas_array
+from .filename_helpers import observatory_change_indices
+
 
 
 ##############################################################
@@ -27,10 +29,7 @@ n_threads = sys.argv[4]
 directory_of_data = f'data/{day}/updated/'
 files_updated = sorted(glob.glob(directory_of_data+'*.fits'))
 
-change_telescope_indices = []
-for num, updated_file in enumerate(files_updated[1:]):
-    if updated_file[-15] != files_updated[num][-15]:
-        change_telescope_indices.append(num+1)
+change_telescope_indices = observatory_change_indices(files_updated)
 
 drot_time_start = t.perf_counter()
 # Function to fill a single slice from the data cube, (image derotated)
