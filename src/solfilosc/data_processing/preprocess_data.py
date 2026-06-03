@@ -9,7 +9,7 @@ from .create_list_files_day import *
 from .limb_darkening import remove_limb_darkening, correct_limb_darkening_and_background
 from .fits_utils import open_fits_file, open_fits_fz_file, save_fits_file
 import sys
-from .filename_helpers import updated_filename as build_updated_filename, updated_filepath
+from .filename_helpers import move_non_science_files, updated_filename as build_updated_filename, updated_filepath
 
 #################
 # DAY OF INTEREST
@@ -55,6 +55,7 @@ if 'updated' not in os.listdir(directory_of_processed_data):
 ########################################################
 print('Creating file list and applying filters')
 files = sorted(glob.glob(directory_of_original_data+'*.fits.fz'))
+files = move_non_science_files(files, directory_of_original_data)
 if len(files) == 0:
     raise FileNotFoundError(
         f"No .fits.fz files found in {directory_of_original_data}\n"
