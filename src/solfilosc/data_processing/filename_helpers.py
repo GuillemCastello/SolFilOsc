@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 import re
+import shutil
 from typing import Iterable
 
 
@@ -278,3 +279,24 @@ def _normalise_allowed_observatories(
     if allowed_observatories is None:
         return None
     return frozenset(site.upper() for site in allowed_observatories)
+
+
+def move_non_science_files(files, raw_data_dir):
+    delete_dir = Path(raw_data_dir) / "delete"
+    science_files = []
+    moved_files = []
+
+    for file in files:
+        info = parse_filename(file, allowed_observatories=None)
+        if info.observatory in DEFAULT_OBSERVATORIES:
+            science_files.append(file)
+        else:
+            delete_dir.mkdir(exist_ok=True)
+            destination = delete_dir / Path(file).name
+            shutil.move(file, destination)
+            moved_files.append(file)
+
+    if moved_files:
+        print(f"Moved {len(moved_files)} non-science files to {delete_dir}")
+
+    return science_files
