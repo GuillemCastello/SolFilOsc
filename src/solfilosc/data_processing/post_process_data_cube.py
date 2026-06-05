@@ -83,7 +83,8 @@ print('')
 ##############################################################
 #MEDIAN ADJUSTMENT OF PIXELS AT TELESCOPE CHANGE INSTANTS
 ##############################################################  
-print('Computing telescope change instants')      
+print('Computing telescope change instants')
+files_updated = sorted(glob.glob(directory_of_data+'*.fits'))
 change_telescope_indices = observatory_change_indices(files_updated)
 
 print(f'Median adjustment of each pixel at telescope change instants, total of {len(change_telescope_indices)} adjustments will be done')
