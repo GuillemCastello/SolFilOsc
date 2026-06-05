@@ -36,3 +36,4 @@ docs/
 
 # The Segmentation model -> should be downloaded from the original repository
 FilamentSeg/
+segment_filaments.py
