@@ -2,41 +2,74 @@
 
 import numpy as np
 
+def _block_means_integral(stack3d, N, S):
+    """Overlapping NxN block means with stride S over a (T, H, W) stack.
+
+    Uses per-frame integral images (summed-area tables) so the cost is
+    O(T*H*W) instead of one Python-level ``.mean()`` call per block.
+    Blocks containing NaN yield NaN, matching ``np.ndarray.mean``.
+    """
+    T, H, W = stack3d.shape
+    r0 = np.arange(0, H - N + 1, S, dtype=np.intp)
+    c0 = np.arange(0, W - N + 1, S, dtype=np.intp)
+    r1 = r0 + N
+    c1 = c0 + N
+    out = np.empty((T, len(r0), len(c0)), dtype=np.float32)
+
+    # Chunk over time to bound the float64 integral-image temporaries.
+    chunk = max(1, int(2**26 // max(1, (H + 1) * (W + 1))))
+    ii = np.zeros((min(chunk, T), H + 1, W + 1), dtype=np.float64)
+
+    for t0 in range(0, T, chunk):
+        t1 = min(t0 + chunk, T)
+        a = stack3d[t0:t1].astype(np.float64, copy=False)
+
+        nan_mask = np.isnan(a)
+        has_nan = bool(nan_mask.any())
+        if has_nan:
+            a = np.where(nan_mask, 0.0, a)
+
+        buf = ii[: t1 - t0]
+        buf[:, 1:, 1:] = a.cumsum(axis=1).cumsum(axis=2)
+        sums = (
+            buf[:, r1][:, :, c1] - buf[:, r0][:, :, c1]
+            - buf[:, r1][:, :, c0] + buf[:, r0][:, :, c0]
+        )
+        block = sums / float(N * N)
+
+        if has_nan:
+            cnt = np.zeros_like(buf)
+            cnt[:, 1:, 1:] = nan_mask.cumsum(axis=1).cumsum(axis=2)
+            n_nan = (
+                cnt[:, r1][:, :, c1] - cnt[:, r0][:, :, c1]
+                - cnt[:, r1][:, :, c0] + cnt[:, r0][:, :, c0]
+            )
+            block[n_nan > 0] = np.nan
+
+        out[t0:t1] = block.astype(np.float32)
+    return out
+
 def block_reduce_mean(frame2d, N, S):
     H, W = frame2d.shape
-    row_starts = np.arange(0, H - N + 1, S, dtype=np.intp)
-    col_starts = np.arange(0, W - N + 1, S, dtype=np.intp)
 
     if S == N:
         rh = (H // N) * N
         rw = (W // N) * N
         return frame2d[:rh, :rw].reshape(H // N, N, W // N, N).mean(axis=(1, 3))
 
-    out = np.empty((len(row_starts), len(col_starts)), dtype=np.float32)
-    for ii, r0 in enumerate(row_starts):
-        for jj, c0 in enumerate(col_starts):
-            out[ii, jj] = frame2d[r0:r0+N, c0:c0+N].mean()
-    return out
+    return _block_means_integral(np.asarray(frame2d)[None], N, S)[0]
 
 def degrade_stack_unweighted(images, N, S):
     T, H, W = images.shape
-    row_starts = np.arange(0, H - N + 1, S, dtype=np.intp)
-    col_starts = np.arange(0, W - N + 1, S, dtype=np.intp)
-    oh = len(row_starts)
-    ow = len(col_starts)
 
     if S == N:
+        oh = (H - N) // S + 1
+        ow = (W - N) // S + 1
         rh = oh * N
         rw = ow * N
         return images[:, :rh, :rw].reshape(T, oh, N, ow, N).mean(axis=(2, 4)).astype(np.float32)
 
-    out = np.empty((T, oh, ow), dtype=np.float32)
-    for k in range(T):
-        f = images[k]
-        for ii, r0 in enumerate(row_starts):
-            for jj, c0 in enumerate(col_starts):
-                out[k, ii, jj] = f[r0:r0+N, c0:c0+N].mean()
-    return out
+    return _block_means_integral(images, N, S)
 
 def degrade_mask_coverage(mask2d, N, S):
     m = (mask2d > 0).astype(np.float32)

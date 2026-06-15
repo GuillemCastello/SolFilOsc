@@ -10,7 +10,6 @@ import matplotlib.animation as animation
 import glob
 import sys
 from tqdm import tqdm
-import itertools
 import h5py
 from scipy.ndimage import median_filter
 from .create_times_array import create_tdeltas_array
@@ -124,15 +123,9 @@ print('')
 #OUTSIDE DISK PIXELS SET TO ZERO
 ##############################################################
 print('Setting pixels oputside the disk to zero')
-xrange = range(2048)
-yrange = range(2048)
-indices_list = list(itertools.product(xrange, yrange))
-inside_indices_list = list(filter(lambda x: np.sqrt((x[0]-1024)**2 + (x[1]-1024)**2) > 830, indices_list))
-
-for inside in tqdm(inside_indices_list):
-    i = inside[0]
-    j = inside[1]
-    data_cube[:, i, j] = 0
+yy, xx = np.ogrid[:2048, :2048]
+outside_disk = (yy - 1024) ** 2 + (xx - 1024) ** 2 > 830 ** 2
+data_cube[:, outside_disk] = 0
 
 print('Pixels outside the disk set to zero')
 print('')

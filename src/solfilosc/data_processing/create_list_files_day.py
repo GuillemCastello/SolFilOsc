@@ -1,5 +1,5 @@
 import numpy as np
-from .fits_utils import open_fits_fz_file
+from .fits_utils import open_fits_fz_header
 from .decorators import benchmark
 from .filename_helpers import (
     formatted_observation_date,
@@ -159,11 +159,8 @@ def observation_windows_times(obs_windows):
     for id, letter in enumerate(obs_windows):
         telescope_dict[id] = letter[0]
 
-    # ARRAYS WITH TOTAL OBSERVING TIME (SECONDS) FOR EACH TELESCOPE OBSERVING WINDOW
-    all_times = []
-    for window in obs_windows:
-        delta_t = np.arange(int(window[1]), int(window[2]), 1)
-        all_times.append(delta_t)
+    # (START, END) SECONDS FOR EACH TELESCOPE OBSERVING WINDOW (END EXCLUSIVE)
+    all_times = [(int(window[1]), int(window[2])) for window in obs_windows]
 
     # TIME IN SEC OF THE DAY OF OBSERVATIONS
 
@@ -183,10 +180,11 @@ def observation_windows_times(obs_windows):
     # HAS TO BE LIST OF LISTS, CAUSE EACH INDEX MAY HVE DIFFERENT NUMBER OF TELESCOPES OBSERVING
     telescope_windows = []
     for time in total_time:
-        telescopes = []
-        for telescope, times in enumerate(all_times):
-            if time in times:
-                telescopes.append(telescope)
+        telescopes = [
+            telescope
+            for telescope, (t_start, t_end) in enumerate(all_times)
+            if t_start <= time < t_end
+        ]
         if len(telescopes) == 0:
             telescopes = ['None']
         telescope_windows.append(telescopes)
@@ -255,7 +253,7 @@ def add_sharpness_entry(obs_windows_times_telescopes):
         for telescope in window[0]:
             sharp = 0
             for file in telescope[0]:
-                header, _ = open_fits_fz_file(file)
+                header = open_fits_fz_header(file)
                 sharp += header['SHARPNSS']
             sharp = sharp/(len(telescope[0]))
             telescope.append(sharp)

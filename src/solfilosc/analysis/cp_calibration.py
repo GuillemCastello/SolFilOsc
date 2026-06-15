@@ -36,10 +36,12 @@ def compute_cp_calibration(
 
     calib_candidate_mask &= (images[0] > 0)
 
-    finite_count = np.isfinite(images).sum(axis=0)
+    finite_count = np.zeros((H, W), dtype=np.int64)
+    for t0 in range(0, T, 64):
+        finite_count += np.isfinite(images[t0:t0 + 64]).sum(axis=0)
     valid_mask = calib_candidate_mask & (finite_count >= max(10, int(0.8 * T)))
 
-    temporal_mean = np.nanmean(images.astype(np.float64), axis=0)
+    temporal_mean = np.nanmean(images, axis=0, dtype=np.float64)
     mean_vals = temporal_mean[valid_mask & np.isfinite(temporal_mean)]
     if mean_vals.size == 0:
         raise RuntimeError("No valid candidate pixels found for CP calibration.")
@@ -180,10 +182,11 @@ def ensure_cp_cache_for_day(
     with h5.File(masks_h5, "r") as hm:
         masks = np.array(hm["masks"][:], dtype=np.uint8)
 
-    order = np.argsort(tdeltas)
-    tdeltas = tdeltas[order]
-    images = images[order]
-    masks = masks[order]
+    order = np.argsort(tdeltas, kind="stable")
+    if not np.array_equal(order, np.arange(order.size)):
+        tdeltas = tdeltas[order]
+        images = images[order]
+        masks = masks[order]
 
     cnn_model = load_cnn(cnn_weights_path)
     scaler = _build_scaler()

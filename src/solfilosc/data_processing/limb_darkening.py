@@ -20,9 +20,9 @@ def remove_limb_darkening(data, grid, u2=0.88, v2=-0.23, radius=900):
     out = np.where(grid>1) 
     grid[out]=0
 
-    # Angle mu for limb darkening / 1->center / 0->border
-    mu = np.cos(grid) 
-    
+    # mu = cos(theta) with sin(theta) = r/R  / 1->center / 0->border
+    mu = np.sqrt(1.0 - grid**2)
+
     # Correct the data
     limb_darkening = 1 - u2 - v2 + u2*mu + v2*mu**2
     corrected_data = data/limb_darkening

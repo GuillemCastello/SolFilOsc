@@ -36,19 +36,17 @@ drot_time_start = t.perf_counter()
 
 
 print(f'Parallelizing the derotation process with {n_threads} threads, if this makes the computer crash lower n_threads number')
-files_index = range(len(files_updated))
-
-with Pool(int(n_threads)) as p:
-    result = list(tqdm(p.imap(derotate, files_updated), total=len(files_updated)))
-
 
 print('Creating data cube')
 dim_data_cube = 2048
 data_cube = np.zeros(shape=(len(files_updated), dim_data_cube, dim_data_cube), dtype=np.float32)
 print(f'Data cube has a shape of {np.shape(data_cube)}')
 
-for i, drot_slice in enumerate(result):
-    data_cube[i] = drot_slice
+# Fill the cube as results stream in instead of buffering every derotated
+# frame in a list first (halves the peak memory of this stage).
+with Pool(int(n_threads)) as p:
+    for i, drot_slice in enumerate(tqdm(p.imap(derotate, files_updated), total=len(files_updated))):
+        data_cube[i] = drot_slice
 
 drot_time_end = t.perf_counter()
 drot_time_elapsed = drot_time_end - drot_time_start

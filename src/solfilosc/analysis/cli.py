@@ -29,6 +29,7 @@ def main():
             results_root=args.results_root,
             cnn_weights_path=args.cnn_weights,
             cp_cache_path=args.cp_cache,
+            n_pixel_workers=args.pixel_workers,
         )
     elif args.day:
         run_day(

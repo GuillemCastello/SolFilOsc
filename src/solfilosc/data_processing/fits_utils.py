@@ -5,6 +5,10 @@ def open_fits_fz_file(file):
         header = hdul[1].header
         data = hdul[1].data
         return header, data
+
+def open_fits_fz_header(file):
+    # Header-only read: avoids decompressing the image data.
+    return fits.getheader(file, ext=1)
     
 def open_fits_file(file):
     with fits.open(file, mode='readonly') as hdul:

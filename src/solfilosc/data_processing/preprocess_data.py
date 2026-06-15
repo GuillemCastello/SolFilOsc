@@ -91,25 +91,16 @@ def preprocess_data(args):
     data = data.astype(np.float32)
     data = correct_limb_darkening_and_background(data)
     #data = median_adjust_intensity(data, reference_data, inside_indices_list)
-    save_fits_file(updated_filename, header, data)
+    # float32 is enough downstream (the data cube is float32) and halves disk I/O
+    save_fits_file(updated_filename, header, data.astype(np.float32))
     return f"{build_updated_filename(file)} created"
 
 
-# CASE 0:
-updated_filename0 = updated_filepath(
-    final_files_list[0],
-    os.path.join(directory_of_processed_data, "updated"),
-)
-ref_header, ref_data = open_fits_fz_file(final_files_list[0])
-ref_data = correct_limb_darkening_and_background(ref_data)
-save_fits_file(updated_filename0, ref_header, ref_data)
-
 print('Prepocessing data, removing limb darkening, adjusting intensity, etc ')
 preprocessing_time_start = t.perf_counter()
-preprocess_iter = final_files_list[1:]
 
 with Pool(int(n_proc)) as preprocess_pool:
-    preprocess_pool = list(tqdm(preprocess_pool.imap(preprocess_data, preprocess_iter), total=len(final_files_list)-1))
+    results = list(tqdm(preprocess_pool.imap(preprocess_data, final_files_list), total=len(final_files_list)))
 
 preprocessing_time_end = t.perf_counter()
 prepocessing_time_elapsed = preprocessing_time_end - preprocessing_time_start

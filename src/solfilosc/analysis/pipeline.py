@@ -63,8 +63,8 @@ def run_once(
     top_m_peaks=4,
     peak_min_prom_frac=0.05,
     scales_mode="distinct_quotients",
-    Nmax=51,
-    Nmin=20,
+    Nmax=71,
+    Nmin=9,
     n_scales=12,
     overlap_frac=0.75,
     period_tol_frac=0.05,
@@ -101,10 +101,11 @@ def run_once(
             f"tdeltas={tdeltas.shape}, masks={masks.shape}"
         )
 
-    order = np.argsort(tdeltas)
-    tdeltas = tdeltas[order]
-    images = images[order]
-    masks = masks[order]
+    order = np.argsort(tdeltas, kind="stable")
+    if not np.array_equal(order, np.arange(order.size)):
+        tdeltas = tdeltas[order]
+        images = images[order]
+        masks = masks[order]
 
     H, W = images.shape[1], images.shape[2]
     dt_med = np.median(np.diff(tdeltas[np.isfinite(tdeltas)]))
@@ -292,20 +293,21 @@ def run_once(
         period_abs_tol_min=float(period_abs_tol_min),
     )
 
+    min_event_scales = 4
     event_summaries = assign_event_ids_within_families(
         all_detections,
         bbox_iou_thr=0.05,
         centroid_scale_factor=2,
         max_scale_idx_gap=3,
         allow_same_scale=False,
-        min_event_scales=3,
+        min_event_scales=min_event_scales,
     )
 
-    # Keep only detections that belong to events seen in >= 3 scales
+    # Keep only detections that belong to events seen in >= min_event_scales scales
     all_detections = [d for d in all_detections if d.get("event_id") is not None]
 
     if not all_detections:
-        print("[done] No events survived the min_event_scales >= 3 filter.")
+        print(f"[done] No events survived the min_event_scales >= {min_event_scales} filter.")
         return
 
     family_summaries = summarize_reported_families(all_detections)
@@ -414,6 +416,7 @@ def run_filament(
     results_root: str = "results",
     cnn_weights_path: str = "CNN/BestFit/BestFitWeights.h5",
     cp_cache_path: str | None = None,
+    n_pixel_workers: int = N_PIXEL_WORKERS,
 ):
     """Run the notebook-equivalent analysis for one filament ROI."""
     data_h5 = os.path.join(data_root, day, "updated", f"{day}_data_modified.h5")
@@ -452,7 +455,7 @@ def run_filament(
         max_components_per_group=None,
         null_mode="none",
         null_seed=0,
-        n_jobs=N_PIXEL_WORKERS,
+        n_jobs=int(n_pixel_workers),
         cp_cache_path=cp_cache_path,
     )
 
@@ -471,9 +474,9 @@ def run_day(
     masks_h5 = os.path.join(data_root, day, "updated", f"{day}_masks.h5")
 
     with h5.File(masks_h5, "r") as hf:
-        masks = np.array(hf["masks"][:], dtype=np.uint8)
+        mask0 = np.array(hf["masks"][0], dtype=np.uint8)
 
-    n_filaments = len(list_candidate_regions_from_mask(masks[0], min_area=750))
+    n_filaments = len(list_candidate_regions_from_mask(mask0, min_area=750))
     print(f"\n=== Day {day}: {n_filaments} filaments ===")
 
     cp_cache_path = ensure_cp_cache_for_day(
@@ -496,6 +499,7 @@ def run_day(
             results_root=results_root,
             cnn_weights_path=cnn_weights_path,
             cp_cache_path=cp_cache_path,
+            n_pixel_workers=int(n_pixel_workers),
         )
         for i in range(n_filaments)
     )
@@ -547,6 +551,7 @@ def main():
             results_root=args.results_root,
             cnn_weights_path=args.cnn_weights,
             cp_cache_path=args.cp_cache,
+            n_pixel_workers=args.pixel_workers,
         )
     elif args.day:
         run_day(
