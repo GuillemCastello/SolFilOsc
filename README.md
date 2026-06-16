@@ -57,7 +57,6 @@ For one day:
 ```bash
 python3 -m solfilosc.data_processing.preprocess_data 2014 201401 20140102 64
 python3 -m solfilosc.data_processing.create_data_cube_file 2014 201401 20140102 64
-python3 -m solfilosc.data_processing.post_process_data_cube 2014 201401 20140102
 ```
 
 For a non-default raw-data location:
@@ -95,22 +94,11 @@ sys.argv[3] = day
 sys.argv[4] = n_threads
 ```
 
-- Reads `data/<day>/updated/*.fits`.
-- Derotates the corrected FITS files.
-- Writes `data/<day>/updated/<day>_data.h5`.
+- Reads `data/<day>/*.fits`.
+- Derotates the corrected FITS files into an in-memory data cube.
+- Post-processes that cube directly (removes bad frames, adjusts telescope-change intensity offsets, zeros pixels outside the disk) — no intermediate `.h5` is written.
+- Writes the final cube `data/<day>/<day>.h5` once, then deletes the intermediate `*_updated.fits` so the day folder keeps only `<day>.h5`.
 - `year` and `month` are currently kept only for interface consistency; `day` and `n_threads` control the run.
-
-`post_process_data_cube`:
-
-```text
-sys.argv[1] = year
-sys.argv[2] = month
-sys.argv[3] = day
-```
-
-- Reads `data/<day>/updated/<day>_data.h5`.
-- Writes `data/<day>/updated/<day>_data_modified.h5`.
-- `year` and `month` are currently kept only for interface consistency.
 
 ### Raw FITS input assumptions
 
@@ -125,8 +113,7 @@ These stages:
 
 1. Filter raw files by size, observing window, cadence density, and sharpness.
 2. Correct limb darkening and smooth background structure.
-3. Derotate images to a common reference time and save `data/<day>/updated/<day>_data.h5`.
-4. Remove bad frames, adjust telescope-change intensity offsets, zero pixels outside the disk, and save `data/<day>/updated/<day>_data_modified.h5`.
+3. Derotate images to a common reference time, post-process the resulting cube in memory (remove bad frames, adjust telescope-change intensity offsets, zero pixels outside the disk), save the final cube `data/<day>/<day>.h5`, and delete the intermediate files.
 
 The example batch script runs these stages for the listed days, then calls the local segmentation wrapper `segment_filaments.py` if you provide one:
 
@@ -139,10 +126,15 @@ bash preprocessing.sh
 The CNN analysis requires a mask file:
 
 ```text
-data/<day>/updated/<day>_masks.h5
+data/<day>/<day>_masks.h5
 ```
 
-The segmentation code/models are not part of this repository. `FilamentSeg/` is ignored by git and should be installed or copied from the original FilamentSeg source repository. After producing masks, place the `.h5` file in the corresponding `data/<day>/updated/` folder before running the oscillation analysis.
+This file holds two datasets, both shaped like the data cube (`T, H, W`), `uint8`:
+
+- `masks`: binary full-disk mask (1 = any filament, 0 = background).
+- `masks_by_type`: per-type full-disk mask (QRF = 1, IRF = 2, ARF = 3, background = 0).
+
+The segmentation code/models are not part of this repository. `FilamentSeg/` is ignored by git and should be installed or copied from the original FilamentSeg source repository. After producing masks, place the `.h5` file in the corresponding `data/<day>/` folder before running the oscillation analysis.
 
 FilamentSeg related references:
 

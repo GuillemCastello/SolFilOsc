@@ -9,7 +9,7 @@ from .create_list_files_day import *
 from .limb_darkening import remove_limb_darkening, correct_limb_darkening_and_background
 from .fits_utils import open_fits_file, open_fits_fz_file, save_fits_file
 import sys
-from .filename_helpers import move_non_science_files, updated_filename as build_updated_filename, updated_filepath
+from .filename_helpers import filter_science_files, updated_filename as build_updated_filename, updated_filepath
 
 #################
 # DAY OF INTEREST
@@ -46,8 +46,6 @@ if not os.path.isdir(directory_of_original_data):
 print(f'Data is in directory {directory_of_original_data} \n')
 directory_of_processed_data = f'data/{day}/'
 os.makedirs(directory_of_processed_data, exist_ok=True)
-if 'updated' not in os.listdir(directory_of_processed_data):
-    os.makedirs(directory_of_processed_data+'updated', exist_ok=True)
 
 
 ########################################################
@@ -55,7 +53,7 @@ if 'updated' not in os.listdir(directory_of_processed_data):
 ########################################################
 print('Creating file list and applying filters')
 files = sorted(glob.glob(directory_of_original_data+'*.fits.fz'))
-files = move_non_science_files(files, directory_of_original_data)
+files = filter_science_files(files)
 if len(files) == 0:
     raise FileNotFoundError(
         f"No .fits.fz files found in {directory_of_original_data}\n"
@@ -86,7 +84,7 @@ print('Files filtered \n')
 
 def preprocess_data(args):
     file = args
-    updated_filename = updated_filepath(file, os.path.join(directory_of_processed_data, "updated"))
+    updated_filename = updated_filepath(file, directory_of_processed_data)
     header, data = open_fits_fz_file(file)
     data = data.astype(np.float32)
     data = correct_limb_darkening_and_background(data)

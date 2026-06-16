@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 import re
-import shutil
 from typing import Iterable
 
 
@@ -281,22 +280,25 @@ def _normalise_allowed_observatories(
     return frozenset(site.upper() for site in allowed_observatories)
 
 
-def move_non_science_files(files, raw_data_dir):
-    delete_dir = Path(raw_data_dir) / "delete"
+def filter_science_files(files):
+    """Return only the science (GONG) files, skipping non-science ones in-memory.
+
+    Unlike the previous ``move_non_science_files`` helper, this never touches the
+    source directory on disk, so it is safe to run against read-only or
+    remote-mounted raw-data folders.
+    """
+
     science_files = []
-    moved_files = []
+    skipped = 0
 
     for file in files:
         info = parse_filename(file, allowed_observatories=None)
         if info.observatory in DEFAULT_OBSERVATORIES:
             science_files.append(file)
         else:
-            delete_dir.mkdir(exist_ok=True)
-            destination = delete_dir / Path(file).name
-            shutil.move(file, destination)
-            moved_files.append(file)
+            skipped += 1
 
-    if moved_files:
-        print(f"Moved {len(moved_files)} non-science files to {delete_dir}")
+    if skipped:
+        print(f"Skipped {skipped} non-science files")
 
     return science_files

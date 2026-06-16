@@ -419,8 +419,8 @@ def run_filament(
     n_pixel_workers: int = N_PIXEL_WORKERS,
 ):
     """Run the notebook-equivalent analysis for one filament ROI."""
-    data_h5 = os.path.join(data_root, day, "updated", f"{day}_data_modified.h5")
-    masks_h5 = os.path.join(data_root, day, "updated", f"{day}_masks.h5")
+    data_h5 = os.path.join(data_root, day, f"{day}.h5")
+    masks_h5 = os.path.join(data_root, day, f"{day}_masks.h5")
     outdir = os.path.join(results_root, day, str(index))
 
     run_once(
@@ -470,8 +470,8 @@ def run_day(
     n_pixel_workers: int = N_PIXEL_WORKERS,
 ):
     """Build the CP cache for one day and analyze every filament in masks[0]."""
-    data_h5 = os.path.join(data_root, day, "updated", f"{day}_data_modified.h5")
-    masks_h5 = os.path.join(data_root, day, "updated", f"{day}_masks.h5")
+    data_h5 = os.path.join(data_root, day, f"{day}.h5")
+    masks_h5 = os.path.join(data_root, day, f"{day}_masks.h5")
 
     with h5.File(masks_h5, "r") as hf:
         mask0 = np.array(hf["masks"][0], dtype=np.uint8)
