@@ -1,11 +1,15 @@
 """CNN noise-model utilities used by the oscillation detector."""
 
-import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+# import os
+# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+# os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import numpy as np
 import tensorflow as tf
+gpus = tf.config.list_physical_devices("GPU")
+for gpu in gpus:
+    tf.config.experimental.set_memory_growth(gpu, True)
+    
 from astropy.timeseries import LombScargle
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras import Model, layers
