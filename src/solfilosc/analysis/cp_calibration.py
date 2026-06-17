@@ -1,5 +1,7 @@
 """Conformal-prediction calibration for daily solar image cubes."""
 
+from __future__ import annotations
+
 import math
 import os
 
@@ -9,8 +11,15 @@ from joblib import Parallel, delayed
 from scipy.ndimage import binary_dilation
 from tqdm import tqdm
 from sklearn.preprocessing import MinMaxScaler
-from .cnn import CNN, _build_scaler, cnn_predict_noise_params, compute_ls_psd_safe, load_cnn, noise_model
+from .psd import compute_ls_psd_safe, noise_model
 from .constants import CNN_FREQUENCY_GRID, N_PIXEL_WORKERS
+
+# Type-only import; `from __future__ import annotations` keeps it from being
+# evaluated at runtime, so the CPU PSD workers never import TensorFlow.
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .cnn import CNN
 
 def compute_cp_calibration(
     images: np.ndarray,
@@ -109,6 +118,9 @@ def compute_cp_calibration(
     print(f"[CP calib] Effective calibration PSDs after finite filtering: {n_eff}")
 
     print("[CP calib] Running CNN inference ...")
+    # Imported lazily so the loky PSD workers above never pull in TensorFlow.
+    from .cnn import cnn_predict_noise_params
+
     n_batches = math.ceil(n_eff / batch_size_cnn)
     all_params = []
     for b in range(n_batches):
@@ -187,6 +199,9 @@ def ensure_cp_cache_for_day(
         tdeltas = tdeltas[order]
         images = images[order]
         masks = masks[order]
+
+    # Imported lazily so the loky PSD workers never pull in TensorFlow.
+    from .cnn import _build_scaler, load_cnn
 
     cnn_model = load_cnn(cnn_weights_path)
     scaler = _build_scaler()

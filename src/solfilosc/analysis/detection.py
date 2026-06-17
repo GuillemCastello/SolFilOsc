@@ -9,7 +9,7 @@ from scipy.signal import find_peaks
 from skimage.measure import label, regionprops
 from tqdm import tqdm
 
-from .cnn import cnn_predict_noise_params, compute_ls_psd_safe, noise_model
+from .psd import compute_ls_psd_safe, noise_model
 from .constants import CNN_FREQUENCY_GRID, DETECTION_FMAX_HZ, DETECTION_FMIN_HZ, N_PIXEL_WORKERS
 from .roi import (
     bbox_from_mask,
@@ -127,6 +127,11 @@ def analyze_degraded_stack_multipeak_cp(
 
     coords = [(i, j) for (i, j, _) in valid_results]
     psds = np.vstack([pxx for (_, _, pxx) in valid_results]).astype(np.float32)
+
+    # Imported lazily so that importing this module (e.g. in the CPU-only PSD
+    # workers above) never pulls in TensorFlow / a GPU context. This runs only in
+    # the filament process, which needs the CNN anyway.
+    from .cnn import cnn_predict_noise_params
 
     n_pix = psds.shape[0]
     n_batches = math.ceil(n_pix / batch_size_cnn)
