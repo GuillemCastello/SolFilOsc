@@ -40,3 +40,6 @@ segment_filaments.py
 
 # Notebooks folder (they are just for testing and comparison purposes)
 notebooks/
+
+# Scripts folder (they are just for testing and organization)
+scripts/

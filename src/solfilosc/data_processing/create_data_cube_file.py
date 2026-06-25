@@ -14,6 +14,7 @@ import h5py
 from .derotate import derotate
 from .create_times_array import create_tdeltas_array
 from .filename_helpers import observatory_change_indices
+from ..paths import day_dir
 
 
 
@@ -27,7 +28,7 @@ month = sys.argv[2]
 day = sys.argv[3]
 n_threads = sys.argv[4]
 
-directory_of_data = f'data/{day}/'
+directory_of_data = day_dir('data', day) + os.sep
 files_updated = sorted(glob.glob(directory_of_data+'*.fits'))
 
 drot_time_start = t.perf_counter()

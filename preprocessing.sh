@@ -30,9 +30,22 @@ last_day="$(date -d "${year}-${month_number}-01 +1 month -1 day" +%d)"
 
 base_dir="/mnt/HPC.servers/codony7/GONG_DATA"
 
+project_data_dir="${DATA_DIR:-$PWD/data}"
+# True (exit 0) if this day is fully processed in data/<year>/<month>/<day>/
+day_already_done() {
+  local d="$1"
+  local dir="${project_data_dir}/${year}/${month}/${d}"
+  [[ -s "${dir}/${d}.h5" && -s "${dir}/${d}_masks.h5" ]]
+}
+
 for day_number in $(seq -w 1 "$last_day"); do
   day="${month}${day_number}"
   raw_dir="${base_dir}/${year}/${month}/${day}"
+
+  if day_already_done "$day"; then
+    echo "=== Skipping day $day: already present in data/${year}/${month}/${day}/ ==="
+    continue
+  fi
 
   echo "=== Processing day: $day ==="
 

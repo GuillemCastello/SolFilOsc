@@ -10,6 +10,7 @@ from .limb_darkening import remove_limb_darkening, correct_limb_darkening_and_ba
 from .fits_utils import open_fits_file, open_fits_fz_file, save_fits_file
 import sys
 from .filename_helpers import filter_science_files, updated_filename as build_updated_filename, updated_filepath
+from ..paths import day_dir
 
 #################
 # DAY OF INTEREST
@@ -44,7 +45,7 @@ if not os.path.isdir(directory_of_original_data):
     )
 
 print(f'Data is in directory {directory_of_original_data} \n')
-directory_of_processed_data = f'data/{day}/'
+directory_of_processed_data = day_dir('data', day) + os.sep
 os.makedirs(directory_of_processed_data, exist_ok=True)
 
 

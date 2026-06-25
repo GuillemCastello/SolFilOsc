@@ -94,10 +94,10 @@ sys.argv[3] = day
 sys.argv[4] = n_threads
 ```
 
-- Reads `data/<day>/*.fits`.
+- Reads `data/<year>/<month>/<day>/*.fits`.
 - Derotates the corrected FITS files into an in-memory data cube.
 - Post-processes that cube directly (removes bad frames, adjusts telescope-change intensity offsets, zeros pixels outside the disk) — no intermediate `.h5` is written.
-- Writes the final cube `data/<day>/<day>.h5` once, then deletes the intermediate `*_updated.fits` so the day folder keeps only `<day>.h5`.
+- Writes the final cube `data/<year>/<month>/<day>/<day>.h5` once, then deletes the intermediate `*_updated.fits` so the day folder keeps only `<day>.h5`.
 - `year` and `month` are currently kept only for interface consistency; `day` and `n_threads` control the run.
 
 ### Raw FITS input assumptions
@@ -113,7 +113,7 @@ These stages:
 
 1. Filter raw files by size, observing window, cadence density, and sharpness.
 2. Correct limb darkening and smooth background structure.
-3. Derotate images to a common reference time, post-process the resulting cube in memory (remove bad frames, adjust telescope-change intensity offsets, zero pixels outside the disk), save the final cube `data/<day>/<day>.h5`, and delete the intermediate files.
+3. Derotate images to a common reference time, post-process the resulting cube in memory (remove bad frames, adjust telescope-change intensity offsets, zero pixels outside the disk), save the final cube `data/<year>/<month>/<day>/<day>.h5`, and delete the intermediate files.
 
 The example batch script runs these stages for the listed days, then calls the local segmentation wrapper `segment_filaments.py` if you provide one:
 
@@ -126,7 +126,7 @@ bash preprocessing.sh
 The CNN analysis requires a mask file:
 
 ```text
-data/<day>/<day>_masks.h5
+data/<year>/<month>/<day>/<day>_masks.h5
 ```
 
 This file holds two datasets, both shaped like the data cube (`T, H, W`), `uint8`:
@@ -134,7 +134,7 @@ This file holds two datasets, both shaped like the data cube (`T, H, W`), `uint8
 - `masks`: binary full-disk mask (1 = any filament, 0 = background).
 - `masks_by_type`: per-type full-disk mask (QRF = 1, IRF = 2, ARF = 3, background = 0).
 
-The segmentation code/models are not part of this repository. `FilamentSeg/` is ignored by git and should be installed or copied from the original FilamentSeg source repository. After producing masks, place the `.h5` file in the corresponding `data/<day>/` folder before running the oscillation analysis.
+The segmentation code/models are not part of this repository. `FilamentSeg/` is ignored by git and should be installed or copied from the original FilamentSeg source repository. After producing masks, place the `.h5` file in the corresponding `data/<year>/<month>/<day>/` folder before running the oscillation analysis.
 
 FilamentSeg related references:
 
@@ -167,7 +167,7 @@ Analyze one filament index:
 solfilosc-analysis --day 20140102 --filament-index 0
 ```
 
-Analyze every available `data/<day>/` folder:
+Analyze every available `data/<year>/<month>/<day>/` folder:
 
 ```bash
 solfilosc-analysis
@@ -185,7 +185,7 @@ solfilosc-analysis \
   --pixel-workers 64
 ```
 
-Outputs are written under `results/<day>/`, including CP calibration caches, diagnostic plots, per-scale component tables, period-family summaries, and event tables.
+Outputs are written under `results/<year>/<month>/<day>/`: a single `<day>_events.json` listing every detected event, a `plots/` folder with one `<day>_<event_index>.png` per event, the `full_disk_filaments_bboxes.png` overview, and the per-day CP calibration cache (`cp_stats_*.npz`). Optional per-family diagnostic plots are written to `period_families/` only when `--plot-period-families` is passed.
 
 ## Analysis modules
 
@@ -206,6 +206,8 @@ Outputs are written under `results/<day>/`, including CP calibration caches, dia
 - The default raw-data path is `data/raw/<month>/<day>/`. Pass the optional fifth argument to `preprocess_data` if your `.fits.fz` files are somewhere else.
 - The pipeline can be memory- and CPU-heavy. Reduce `ncores`, `--filament-workers`, or `--pixel-workers` if the machine becomes unstable.
 - TensorFlow is forced to CPU in the CNN module, matching the original notebook behavior.
-- CP calibration is expensive but cached per day under `results/<day>/`.
+- CP calibration is expensive but cached per day under `results/<year>/<month>/<day>/`.
 - `data/`, `results/`, and `FilamentSeg/` are ignored because they are large or externally sourced.
--If a day is reprocessed, or if masks/model weights/calibration settings change, delete results/<day>/ before rerunning the analysis. The CP calibration cache is stored under results/<day>/ and is reused when present.
+- Data and results follow a nested date layout: `data/<year>/<month>/<day>/` and `results/<year>/<month>/<day>/`, where `year=YYYY`, `month=YYYYMM`, `day=YYYYMMDD`. Use `scripts/migrate_to_nested_layout.sh` to move an existing flat `data/<day>` / `results/<day>` layout into this structure.
+- `analysis.sh` skips days that already have `results/<year>/<month>/<day>/<day>_events.json`; set `FORCE=1` (e.g. `FORCE=1 bash analysis.sh`) to re-analyze them.
+- If a day is reprocessed, or if masks/model weights/calibration settings change, delete `results/<year>/<month>/<day>/` before rerunning the analysis. The CP calibration cache is stored under `results/<year>/<month>/<day>/` and is reused when present.

@@ -156,7 +156,7 @@ def plot_period_scale_scatter(outpath, detections, *, title):
     fig.savefig(outpath, dpi=150)
     plt.close(fig)
 
-def plot_period_family_spatial_maps(outdir, roi_img0, union_mask, scales, detections, family_summaries):
+def plot_period_family_spatial_maps(outdir, roi_img0, union_mask, scales, detections, family_summaries, *, fname_prefix=""):
     os.makedirs(outdir, exist_ok=True)
     if not detections or not family_summaries:
         return
@@ -209,5 +209,43 @@ def plot_period_family_spatial_maps(outdir, roi_img0, union_mask, scales, detect
             f"{fam['n_scales']} scale(s), {fam['n_components']} component(s)"
         )
         plt.tight_layout()
-        fig.savefig(os.path.join(outdir, f"family_{fid:03d}_P{fam_center:.2f}min.png"), dpi=150)
+        fig.savefig(os.path.join(outdir, f"{fname_prefix}family_{fid:03d}_P{fam_center:.2f}min.png"), dpi=150)
         plt.close(fig)
+
+
+def plot_event(outpath, roi_image0, roi_bbox, event_bbox_full, period_min, *, day, event_index):
+    """Plot one detected event: the filament cropped to its bbox with a red box marking the
+    event region and the period printed in red. Axes are labeled in arcsec (1 px = 1 arcsec)."""
+    crop_H, crop_W = roi_image0.shape
+
+    # Event bbox is in full-disk pixels; convert to crop-relative coordinates.
+    e_min_y = event_bbox_full[0] - roi_bbox["min_y"]
+    e_min_x = event_bbox_full[1] - roi_bbox["min_x"]
+    e_max_y = event_bbox_full[2] - roi_bbox["min_y"]
+    e_max_x = event_bbox_full[3] - roi_bbox["min_x"]
+
+    fig, ax = plt.subplots(figsize=(7, 6))
+    ax.imshow(roi_image0, cmap="gray", origin="lower")
+
+    ax.plot(
+        [e_min_x, e_max_x, e_max_x, e_min_x, e_min_x],
+        [e_min_y, e_min_y, e_max_y, e_max_y, e_min_y],
+        "r-", lw=1.5, label=f"P = {period_min:.1f} min",
+    )
+
+    ax.text(
+        0.02, 0.98, f"P = {period_min:.1f} min",
+        transform=ax.transAxes, color="red", fontsize=12, fontweight="bold",
+        ha="left", va="top",
+        bbox=dict(facecolor="black", alpha=0.4, pad=2.0),
+    )
+
+    ax.set_xlim(0, crop_W)
+    ax.set_ylim(0, crop_H)
+    ax.set_xlabel("X (arcsec)")
+    ax.set_ylabel("Y (arcsec)")
+    ax.set_title(f"{day}  event {event_index}")
+
+    plt.tight_layout()
+    fig.savefig(outpath, dpi=150)
+    plt.close(fig)

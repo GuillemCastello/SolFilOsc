@@ -1,13 +1,8 @@
 """Driver for the CNN + conformal-prediction oscillation analysis pipeline."""
 
-import argparse
-import csv
 import os
 
 import h5py as h5
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
 from joblib import Parallel, delayed
 from scipy.ndimage import binary_dilation
@@ -29,24 +24,22 @@ from .degradation import (
     degrade_stack_unweighted,
 )
 from .detection import analyze_degraded_stack_multipeak_cp, cluster_global_period_families, extract_scale_period_components
-from .events import assign_event_ids_within_families, summarize_reported_families, write_event_summary_csv
+from .events import assign_event_ids_within_families, summarize_reported_families
 from .plotting import (
-    plot_cp_calibration,
+    plot_event,
     plot_full_disk_filaments_bboxes,
     plot_period_family_spatial_maps,
-    plot_period_scale_scatter,
-    plot_scale_period_components,
-    plot_scale_summary_maps,
 )
 from .roi import expand_bbox, list_candidate_regions_from_mask, select_roi_bbox_from_first_mask
-from .writers import _strip_masks_for_serialization, write_component_csv, write_json
+from .writers import write_json
+from ..paths import day_dir, discover_days
 
 def run_once(
     *,
     day,
     data_h5,
     masks_h5,
-    outdir,
+    day_dir,
     cnn_weights_path,
     cp_n_calib=100_000,
     cp_delta=0.00001,
@@ -76,17 +69,11 @@ def run_once(
     null_seed=0,
     n_jobs=N_PIXEL_WORKERS,
     cp_cache_path=None,
+    plot_period_families=False,
 ):
-    os.makedirs(outdir, exist_ok=True)
+    os.makedirs(day_dir, exist_ok=True)
 
-    plots_out = os.path.join(outdir, "plots")
-    tables_out = os.path.join(outdir, "tables")
-    families_out = os.path.join(outdir, "period_families")
-    os.makedirs(plots_out, exist_ok=True)
-    os.makedirs(tables_out, exist_ok=True)
-    os.makedirs(families_out, exist_ok=True)
-
-    print(f"\n[run] day={day}  roi_pick_index={roi_pick_index}  outdir={outdir}")
+    print(f"\n[run] day={day}  roi_pick_index={roi_pick_index}  day_dir={day_dir}")
 
     with h5.File(data_h5, "r") as hf:
         images = np.array(hf["time_series"][:], dtype=np.float32)
@@ -115,11 +102,7 @@ def run_once(
     scaler = _build_scaler()
 
     if cp_cache_path is None:
-        cp_cache_path = get_cp_cache_path(
-            os.path.abspath(os.path.join(outdir, os.pardir)),
-            day,
-            cp_delta
-        )
+        cp_cache_path = get_cp_cache_path(day_dir, day, cp_delta)
 
     if not os.path.exists(cp_cache_path):
         raise FileNotFoundError(f"Expected precomputed CP cache was not found: {cp_cache_path}")
@@ -136,11 +119,7 @@ def run_once(
             "Delete it and rebuild calibration."
         )
 
-    plot_cp_calibration(plots_out, m_cp, s_cp, qk, delta=float(cp_delta))
-
-    day_root = os.path.abspath(os.path.join(outdir, os.pardir))
-    os.makedirs(day_root, exist_ok=True)
-    day_overview_png = os.path.join(day_root, "full_disk_filaments_bboxes.png")
+    day_overview_png = os.path.join(day_dir, "full_disk_filaments_bboxes.png")
     if not os.path.exists(day_overview_png):
         regs_sorted = list_candidate_regions_from_mask(masks[0], min_area=int(roi_min_area))
         plot_full_disk_filaments_bboxes(
@@ -169,14 +148,6 @@ def run_once(
     if union_dilate_iter and union_dilate_iter > 0:
         union_mask = binary_dilation(union_mask, iterations=int(union_dilate_iter))
 
-    fig = plt.figure(figsize=(8, 6))
-    plt.imshow(ROI_images[0], cmap="gray", origin="lower")
-    plt.contour(union_mask.astype(float), levels=[0.5], linewidths=1.2)
-    plt.title("ROI frame[0] + persistent union mask contour")
-    plt.tight_layout()
-    fig.savefig(os.path.join(plots_out, "roi_union_mask.png"), dpi=140)
-    plt.close(fig)
-
     if scales_mode == "distinct_quotients":
         Ns = choose_scales_distinct_quotients(roi_H, start=int(Nmax), stop=int(Nmin) - 1)
     elif scales_mode == "log_ladder":
@@ -196,9 +167,7 @@ def run_once(
 
     rng = np.random.default_rng(int(null_seed))
 
-    all_group_summaries = []
     all_detections = []
-    per_scale_cache = []
     next_detection_id = 0
 
     for scale_idx, sc in enumerate(scales):
@@ -228,8 +197,6 @@ def run_once(
         n_sig = int((maps["sig_any"] & maps["keep_mask"]).sum())
         print(f"[scale] sig pixels={n_sig}")
 
-        plot_scale_summary_maps(plots_out, name, stack0=stack[0], union_cov=cov, maps=maps)
-
         group_summaries, detections = extract_scale_period_components(
             day=day,
             roi_pick_index=roi_pick_index,
@@ -254,38 +221,12 @@ def run_once(
 
         print(f"[scale] period groups={len(group_summaries)}  components={len(detections)}")
 
-        detections_sorted = sorted(
-            detections,
-            key=lambda d: (float(d["period_min"]) if d["period_min"] is not None else np.inf, -float(d["strength"]))
-        )
-        plot_scale_period_components(
-            plots_out, name, ROI_images[0], union_mask, detections_sorted
-        )
-
-        scale_csv = os.path.join(tables_out, f"{name}_components.csv")
-        scale_json = os.path.join(tables_out, f"{name}_components.json")
-        write_component_csv(scale_csv, _strip_masks_for_serialization(detections))
-        write_json(scale_json, dict(
-            day=str(day),
-            roi_pick_index=int(roi_pick_index),
-            scale_idx=int(scale_idx),
-            scale_name=str(name),
-            N=int(N),
-            S=int(S),
-            n_groups=int(len(group_summaries)),
-            n_components=int(len(detections)),
-            groups=group_summaries,
-            components=_strip_masks_for_serialization(detections),
-        ))
-
-        all_group_summaries.extend(group_summaries)
         all_detections.extend(detections)
         next_detection_id += len(detections)
-        per_scale_cache.append(dict(scale_idx=scale_idx, scale_name=name, N=N, S=S, maps=maps))
 
     if not all_detections:
         print("[done] No connected components found.")
-        return
+        return None
 
     _, _all_family_summaries = cluster_global_period_families(
         all_detections,
@@ -308,103 +249,37 @@ def run_once(
 
     if not all_detections:
         print(f"[done] No events survived the min_event_scales >= {min_event_scales} filter.")
-        return
+        return None
 
     family_summaries = summarize_reported_families(all_detections)
 
-    plot_period_scale_scatter(
-        os.path.join(plots_out, "period_vs_scale_components.png"),
-        all_detections,
-        title="Connected-component detections: period vs scale",
+    if plot_period_families:
+        fam_dir = os.path.join(day_dir, "period_families")
+        os.makedirs(fam_dir, exist_ok=True)
+        plot_period_family_spatial_maps(
+            fam_dir,
+            ROI_images[0],
+            union_mask,
+            scales,
+            all_detections,
+            family_summaries,
+            fname_prefix=f"filament{roi_pick_index}_",
+        )
+
+    print(
+        f"[done] {len(all_detections)} component(s), "
+        f"{len(family_summaries)} family/families, "
+        f"{len(event_summaries)} event(s)"
     )
 
-    plot_period_family_spatial_maps(
-        families_out,
-        ROI_images[0],
-        union_mask,
-        scales,
-        all_detections,
-        family_summaries,
-    )
-
-    all_components_csv = os.path.join(tables_out, "all_components.csv")
-    all_components_json = os.path.join(tables_out, "all_components.json")
-    family_summary_json = os.path.join(tables_out, "period_families.json")
-    family_summary_csv = os.path.join(tables_out, "period_families.csv")
-    event_summary_json = os.path.join(tables_out, "events.json")
-    event_summary_csv = os.path.join(tables_out, "events.csv")
-
-    write_component_csv(all_components_csv, _strip_masks_for_serialization(all_detections))
-    write_json(all_components_json, dict(
-        day=str(day),
-        roi_pick=str(roi_pick),
+    return dict(
         roi_pick_index=int(roi_pick_index),
         roi_bbox=dict(
             min_y=int(roi_miny), min_x=int(roi_minx),
             max_y=int(roi_maxy), max_x=int(roi_maxx),
         ),
-        cp_delta=float(cp_delta),
-        n_scales=int(len(scales)),
-        n_components=int(len(all_detections)),
-        n_families=int(len(family_summaries)),
-        n_events=int(len(event_summaries)),
-        components=_strip_masks_for_serialization(all_detections),
-    ))
-
-    write_json(family_summary_json, dict(
-        day=str(day),
-        roi_pick_index=int(roi_pick_index),
-        n_families=int(len(family_summaries)),
-        families=family_summaries,
-    ))
-
-    write_json(event_summary_json, dict(
-        day=str(day),
-        roi_pick_index=int(roi_pick_index),
-        n_events=int(len(event_summaries)),
         events=event_summaries,
-    ))
-
-    write_event_summary_csv(event_summary_csv, event_summaries)
-
-    with open(family_summary_csv, "w", newline="") as f:
-        fields = [
-            "family_id", "family_center_min", "n_components",
-            "n_scales", "total_strength", "scales_present",
-        ]
-        writer = csv.DictWriter(f, fieldnames=fields)
-        writer.writeheader()
-        for rec in family_summaries:
-            row = dict(rec)
-            row["scales_present"] = ",".join(str(x) for x in rec["scales_present"])
-            writer.writerow(row)
-
-    summary_txt = os.path.join(tables_out, "summary.txt")
-    with open(summary_txt, "w") as f:
-        f.write("CONNECTED-COMPONENT PERIOD CATALOG\n")
-        f.write("=================================\n\n")
-        f.write(f"day: {day}\n")
-        f.write(f"roi_pick_index: {roi_pick_index}\n")
-        f.write(f"cp_delta: {cp_delta}\n")
-        f.write(f"n_scales: {len(scales)}\n")
-        f.write(f"n_components: {len(all_detections)}\n")
-        f.write(f"n_families: {len(family_summaries)}\n")
-        f.write(f"n_events: {len(event_summaries)}\n\n")
-
-        f.write("Families:\n")
-        for fam in family_summaries:
-            f.write(
-                f"  family_id={fam['family_id']:>3d}  "
-                f"center={fam['family_center_min']:.3f} min  "
-                f"n_scales={fam['n_scales']:>2d}  "
-                f"n_components={fam['n_components']:>3d}  "
-                f"strength={fam['total_strength']:.2f}\n"
-            )
-
-    print(
-        f"[done] {len(all_detections)} component(s), "
-        f"{len(family_summaries)} family/families, "
-        f"{len(event_summaries)} event(s) -> {tables_out}"
+        roi_image0=np.asarray(ROI_images[0], dtype=np.float32),
     )
 
 
@@ -417,17 +292,21 @@ def run_filament(
     cnn_weights_path: str = "CNN/BestFit/BestFitWeights.h5",
     cp_cache_path: str | None = None,
     n_pixel_workers: int = N_PIXEL_WORKERS,
+    plot_period_families: bool = False,
 ):
-    """Run the notebook-equivalent analysis for one filament ROI."""
-    data_h5 = os.path.join(data_root, day, f"{day}.h5")
-    masks_h5 = os.path.join(data_root, day, f"{day}_masks.h5")
-    outdir = os.path.join(results_root, day, str(index))
+    """Run the notebook-equivalent analysis for one filament ROI.
 
-    run_once(
+    Returns the per-filament result dict (events + plot data) for day-level
+    aggregation, or None if no events were found.
+    """
+    data_h5 = os.path.join(day_dir(data_root, day), f"{day}.h5")
+    masks_h5 = os.path.join(day_dir(data_root, day), f"{day}_masks.h5")
+
+    return run_once(
         day=day,
         data_h5=data_h5,
         masks_h5=masks_h5,
-        outdir=outdir,
+        day_dir=day_dir(results_root, day),
         cnn_weights_path=cnn_weights_path,
         cp_n_calib=1_000_000,
         cp_delta=CP_DELTA,
@@ -457,7 +336,72 @@ def run_filament(
         null_seed=0,
         n_jobs=int(n_pixel_workers),
         cp_cache_path=cp_cache_path,
+        plot_period_families=plot_period_families,
     )
+
+
+def write_day_outputs(day, results_root, filament_results):
+    """Aggregate per-filament results into one per-day events JSON plus one plot per event.
+
+    `filament_results` is the list returned by the per-filament runs (some entries may be
+    None when a filament produced no events). Events are numbered with a global per-day
+    index used both in the JSON and the plot filenames (``<day>_<event_index>.png``).
+    """
+    out_dir = day_dir(results_root, day)
+    plots_dir = os.path.join(out_dir, "plots")
+    os.makedirs(plots_dir, exist_ok=True)
+
+    events_out = []
+    n_filaments_with_events = 0
+    event_index = 0
+
+    for res in filament_results:
+        if not res or not res.get("events"):
+            continue
+        n_filaments_with_events += 1
+        roi_bbox = res["roi_bbox"]
+        roi_image0 = res["roi_image0"]
+
+        for ev in res["events"]:
+            event_bbox = dict(
+                min_y=ev["bbox_full_min_y"], min_x=ev["bbox_full_min_x"],
+                max_y=ev["bbox_full_max_y"], max_x=ev["bbox_full_max_x"],
+            )
+            events_out.append(dict(
+                event_index=int(event_index),
+                filament_index=int(ev["roi_pick_index"]),
+                filament_bbox=roi_bbox,
+                event_bbox=event_bbox,
+                period_min=ev["event_center_min"],
+                period_mean_min=ev["event_mean_min"],
+                scales=ev["scales_present"],
+                strength=ev["total_strength"],
+                centroid_x=ev["centroid_full_x"],
+                centroid_y=ev["centroid_full_y"],
+            ))
+
+            plot_event(
+                os.path.join(plots_dir, f"{day}_{event_index}.png"),
+                roi_image0,
+                roi_bbox,
+                (event_bbox["min_y"], event_bbox["min_x"], event_bbox["max_y"], event_bbox["max_x"]),
+                ev["event_center_min"],
+                day=str(day),
+                event_index=event_index,
+            )
+            event_index += 1
+
+    write_json(
+        os.path.join(out_dir, f"{day}_events.json"),
+        dict(
+            day=str(day),
+            n_events=int(len(events_out)),
+            n_filaments_with_events=int(n_filaments_with_events),
+            events=events_out,
+        ),
+    )
+    print(f"[day {day}] {len(events_out)} event(s) across {n_filaments_with_events} filament(s) -> {out_dir}")
+    return events_out
 
 
 def run_day(
@@ -468,10 +412,11 @@ def run_day(
     cnn_weights_path: str = "CNN/BestFit/BestFitWeights.h5",
     n_filament_workers: int = N_FILAMENT_WORKERS,
     n_pixel_workers: int = N_PIXEL_WORKERS,
+    plot_period_families: bool = False,
 ):
     """Build the CP cache for one day and analyze every filament in masks[0]."""
-    data_h5 = os.path.join(data_root, day, f"{day}.h5")
-    masks_h5 = os.path.join(data_root, day, f"{day}_masks.h5")
+    data_h5 = os.path.join(day_dir(data_root, day), f"{day}.h5")
+    masks_h5 = os.path.join(day_dir(data_root, day), f"{day}_masks.h5")
 
     with h5.File(masks_h5, "r") as hf:
         mask0 = np.array(hf["masks"][0], dtype=np.uint8)
@@ -483,7 +428,7 @@ def run_day(
         day=day,
         data_h5=data_h5,
         masks_h5=masks_h5,
-        outroot=os.path.join(results_root, day),
+        outroot=day_dir(results_root, day),
         cnn_weights_path=cnn_weights_path,
         cp_n_calib=1_000_000,
         cp_delta=CP_DELTA,
@@ -491,7 +436,7 @@ def run_day(
         n_jobs=int(n_pixel_workers),
     )
 
-    Parallel(n_jobs=int(n_filament_workers), verbose=5)(
+    filament_results = Parallel(n_jobs=int(n_filament_workers), verbose=5)(
         delayed(run_filament)(
             day=day,
             index=i,
@@ -500,9 +445,12 @@ def run_day(
             cnn_weights_path=cnn_weights_path,
             cp_cache_path=cp_cache_path,
             n_pixel_workers=int(n_pixel_workers),
+            plot_period_families=plot_period_families,
         )
         for i in range(n_filaments)
     )
+
+    write_day_outputs(day, results_root, filament_results)
 
 
 def run_all_days(
@@ -512,11 +460,9 @@ def run_all_days(
     cnn_weights_path: str = "CNN/BestFit/BestFitWeights.h5",
     n_filament_workers: int = N_FILAMENT_WORKERS,
     n_pixel_workers: int = N_PIXEL_WORKERS,
+    plot_period_families: bool = False,
 ):
-    days = sorted(
-        name for name in os.listdir(data_root)
-        if os.path.isdir(os.path.join(data_root, name))
-    )
+    days = discover_days(data_root)
     for day in days:
         run_day(
             day,
@@ -525,52 +471,5 @@ def run_all_days(
             cnn_weights_path=cnn_weights_path,
             n_filament_workers=n_filament_workers,
             n_pixel_workers=n_pixel_workers,
+            plot_period_families=plot_period_families,
         )
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(description="Run the solar-filament oscillation analysis pipeline.")
-    parser.add_argument("--day", help="Day to analyze, e.g. 20140102. If omitted, all data/<day>/ folders are processed.")
-    parser.add_argument("--filament-index", type=int, help="Analyze one filament index instead of every filament for the day.")
-    parser.add_argument("--data-root", default="data")
-    parser.add_argument("--results-root", default="results")
-    parser.add_argument("--cnn-weights", default="CNN/BestFit/BestFitWeights.h5")
-    parser.add_argument("--cp-cache", default=None, help="Optional existing CP cache for --filament-index runs.")
-    parser.add_argument("--filament-workers", type=int, default=N_FILAMENT_WORKERS)
-    parser.add_argument("--pixel-workers", type=int, default=N_PIXEL_WORKERS)
-    return parser.parse_args()
-
-
-def main():
-    args = parse_args()
-    if args.day and args.filament_index is not None:
-        run_filament(
-            args.day,
-            args.filament_index,
-            data_root=args.data_root,
-            results_root=args.results_root,
-            cnn_weights_path=args.cnn_weights,
-            cp_cache_path=args.cp_cache,
-            n_pixel_workers=args.pixel_workers,
-        )
-    elif args.day:
-        run_day(
-            args.day,
-            data_root=args.data_root,
-            results_root=args.results_root,
-            cnn_weights_path=args.cnn_weights,
-            n_filament_workers=args.filament_workers,
-            n_pixel_workers=args.pixel_workers,
-        )
-    else:
-        run_all_days(
-            data_root=args.data_root,
-            results_root=args.results_root,
-            cnn_weights_path=args.cnn_weights,
-            n_filament_workers=args.filament_workers,
-            n_pixel_workers=args.pixel_workers,
-        )
-
-
-if __name__ == "__main__":
-    main()
