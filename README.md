@@ -333,6 +333,8 @@ This work utilizes GONG data obtained by the NSO Integrated Synoptic Program, ma
 
 Filament segmentation builds on [FilamentSeg / SWEFil](https://huggingface.co/datasets/antonio-reche/SWEFil) by Antonio Reche (CC BY 4.0).
 
+This work is part of the I+D+i project PID2023 147708NB-I00 funded by MICIU/AEI/10.13039/501100011033 and by FEDER, EU.Also it is financially supported by General d’Universitats, Recerca i Ensenyaments Artístics Superiors of the Government of the Balearic Islands through a pre-doctoral fellowship co-financed by the European Social Fund Plus (FSE+) within the framework of the Balearic Islands Programme 2021–2027. Co-funded by the European Union.
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
