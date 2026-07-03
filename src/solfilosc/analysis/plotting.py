@@ -9,7 +9,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .constants import CNN_FREQUENCY_GRID
+from .constants import CNN_FREQUENCY_GRID, DISK_CENTER_PX
 
 def plot_full_disk_filaments_bboxes(outpath, image0, mask0, bboxes, *, title):
     fig = plt.figure(figsize=(10, 10))
@@ -215,17 +215,25 @@ def plot_period_family_spatial_maps(outdir, roi_img0, union_mask, scales, detect
 
 def plot_event(outpath, roi_image0, roi_bbox, event_bbox_full, period_min, *, day, event_index):
     """Plot one detected event: the filament cropped to its bbox with a red box marking the
-    event region and the period printed in red. Axes are labeled in arcsec (1 px = 1 arcsec)."""
+    event region and the period printed in red. Axes are heliocentric arcsec: 1 px = 1 arcsec
+    with disk-center pixel (DISK_CENTER_PX, DISK_CENTER_PX) at (0, 0) arcsec."""
     crop_H, crop_W = roi_image0.shape
 
-    # Event bbox is in full-disk pixels; convert to crop-relative coordinates.
-    e_min_y = event_bbox_full[0] - roi_bbox["min_y"]
-    e_min_x = event_bbox_full[1] - roi_bbox["min_x"]
-    e_max_y = event_bbox_full[2] - roi_bbox["min_y"]
-    e_max_x = event_bbox_full[3] - roi_bbox["min_x"]
+    # Crop origin in arcsec; the -0.5 in the extent keeps pixel centers at integer arcsec.
+    x0 = roi_bbox["min_x"] - DISK_CENTER_PX
+    y0 = roi_bbox["min_y"] - DISK_CENTER_PX
+
+    # Event bbox is in full-disk pixels; convert to arcsec.
+    e_min_y = event_bbox_full[0] - DISK_CENTER_PX
+    e_min_x = event_bbox_full[1] - DISK_CENTER_PX
+    e_max_y = event_bbox_full[2] - DISK_CENTER_PX
+    e_max_x = event_bbox_full[3] - DISK_CENTER_PX
 
     fig, ax = plt.subplots(figsize=(7, 6))
-    ax.imshow(roi_image0, cmap="gray", origin="lower")
+    ax.imshow(
+        roi_image0, cmap="gray", origin="lower",
+        extent=(x0 - 0.5, x0 + crop_W - 0.5, y0 - 0.5, y0 + crop_H - 0.5),
+    )
 
     ax.plot(
         [e_min_x, e_max_x, e_max_x, e_min_x, e_min_x],
@@ -240,8 +248,8 @@ def plot_event(outpath, roi_image0, roi_bbox, event_bbox_full, period_min, *, da
         bbox=dict(facecolor="black", alpha=0.4, pad=2.0),
     )
 
-    ax.set_xlim(0, crop_W)
-    ax.set_ylim(0, crop_H)
+    ax.set_xlim(x0 - 0.5, x0 + crop_W - 0.5)
+    ax.set_ylim(y0 - 0.5, y0 + crop_H - 0.5)
     ax.set_xlabel("X (arcsec)")
     ax.set_ylabel("Y (arcsec)")
     ax.set_title(f"{day}  event {event_index}")

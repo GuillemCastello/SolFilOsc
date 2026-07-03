@@ -4,6 +4,7 @@ import numpy as np
 
 N_FILAMENT_WORKERS = 64
 N_PIXEL_WORKERS = 64
+DISK_CENTER_PX = 1023  # full-disk pixel of disk center: (1023, 1023) px = (0, 0) arcsec, 1 px = 1 arcsec
 CNN_FREQUENCY_GRID = np.linspace(1 / (1440 * 60), 1 / 120, 2000).astype(np.float32)
 CP_DELTA = 0.0000006
 DETECTION_FMIN_HZ = 1.0 / (3.0 * 3600.0)
