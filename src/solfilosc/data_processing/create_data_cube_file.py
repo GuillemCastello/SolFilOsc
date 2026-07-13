@@ -157,8 +157,10 @@ data_cube_file_out = f'{directory_of_data}{day}.h5'
 print(f'Saving the final data cube in {data_cube_file_out}')
 saving_h5_time_start = t.perf_counter()
 with h5py.File(data_cube_file_out, mode='w') as f:
-    f.create_dataset('time_series', data=data_cube, dtype=np.float32, compression='gzip')
-    f.create_dataset('tdeltas', data=tdeltas, dtype=np.int32, compression='gzip')
+    f.create_dataset('time_series', data=data_cube, dtype=np.float32,
+                    compression='gzip', compression_opts=4, shuffle=True)
+    f.create_dataset('tdeltas', data=tdeltas, dtype=np.int32, 
+                     compression='gzip', compression_opts=4, shuffle=True)
 saving_h5_time_end = t.perf_counter()
 print(f'h5 data file saved in {((saving_h5_time_end - saving_h5_time_start)/60):.1f} min \n')
 
