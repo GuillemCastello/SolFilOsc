@@ -1,7 +1,10 @@
 """CNN noise-model utilities used by the oscillation detector."""
 
-# import os
-# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+import os
+
+# Reserve GPU 1 for other workloads by exposing only physical GPU 0 to TensorFlow.
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
 # os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import numpy as np
