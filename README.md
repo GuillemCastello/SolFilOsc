@@ -290,7 +290,7 @@ built on the CNN spectral-analysis method introduced in:
 
 Filament segmentation uses FilamentSeg by Reche & Cid:
 
-> **Reche, A., & Cid, C. (2026)** — *New dataset and framework for filament detection, classification, and segmentation using deep learning*, Acta Astronautica, 249, 381-398.
+> **Reche, A., & Cid, C. (2026)** — *New dataset and framework for filament detection, classification, and segmentation using deep learning*, Acta Astronautica, 249, 381-398. [doi:10.1016/j.actaastro.2026.07.010](https://doi.org/10.1016/j.actaastro.2026.07.010)
 
 <details>
 <summary>BibTeX entries</summary>
