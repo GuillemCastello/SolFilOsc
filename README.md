@@ -290,7 +290,7 @@ built on the CNN spectral-analysis method introduced in:
 
 Filament segmentation uses FilamentSeg by Reche & Cid:
 
-> **Reche, A., & Cid, C. (2024)** — *Solar filament detection, classification, and tracking with deep learning*, Proc. SPAICE2024, 69–74.
+> **Reche, A., & Cid, C. (2026)** — *New dataset and framework for filament detection, classification, and segmentation using deep learning*, Acta Astronautica, 249, 381-398.
 
 <details>
 <summary>BibTeX entries</summary>
@@ -316,12 +316,18 @@ Filament segmentation uses FilamentSeg by Reche & Cid:
   doi     = {10.1051/0004-6361/202452928}
 }
 
-@inproceedings{reche2024solar,
-  title     = {Solar filament detection, classification, and tracking with deep learning},
-  author    = {Reche, Antonio and Cid, Consuelo},
-  booktitle = {Proceedings of SPAICE2024: The First Joint European Space Agency/IAA Conference on AI in and for Space},
-  pages     = {69--74},
-  year      = {2024}
+@article{RECHE2026381,
+title = {New dataset and framework for filament detection, classification, and segmentation using deep learning},
+journal = {Acta Astronautica},
+volume = {249},
+pages = {381-398},
+year = {2026},
+issn = {0094-5765},
+doi = {https://doi.org/10.1016/j.actaastro.2026.07.010},
+url = {https://www.sciencedirect.com/science/article/pii/S0094576526004649},
+author = {Antonio Reche and Consuelo Cid},
+keywords = {Solar filaments, Solar physics, Space weather, Object detection, Image segmentation, Deep learning},
+abstract = {Solar filaments, phenomena in the solar corona, are of significant scientific interest due to their link with violent eruptive events such as coronal mass ejections. This study introduces a comprehensive deep learning framework for the detection, classification, and segmentation of solar filaments using Hα images from the Global Oscillation Network Group data archive. Using together a DETR-based model for detection and a U-Net for image segmentation and classification, we achieve high performance across all tasks, overcoming typical challenges. In addition, we introduce a new dataset with detailed classifications and segmentations of solar filaments in Hα images, designed as a benchmark for space-weather-oriented filament analysis. The proposed methodology significantly advances solar filament analysis, offering improved capabilities for automated studies and potential applications in space weather prediction.}
 }
 ```
 
