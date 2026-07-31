@@ -5,7 +5,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![arXiv](https://img.shields.io/badge/arXiv-2607.01095-b31b1b.svg)](https://arxiv.org/abs/2607.01095)
-[![DOI](https://img.shields.io/badge/DOI-10.1051%2F0004--6361%2F202452928-blue.svg)](https://doi.org/10.1051/0004-6361/202452928)
+[![DOI](https://img.shields.io/badge/DOI-10.1051%2F0004--6361%2F202452928-blue.svg)](https://doi.org/10.1051/0004-6361/202660956)
 
 <p align="center">
   <img src="assets/full_disk_filaments_bboxes.png" alt="GONG Hα full-disk image for 2014-03-01 with segmented filaments and indexed bounding boxes" width="640"/>
